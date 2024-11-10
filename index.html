@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nhận dạng giọng nói</title>
+  </head>
+  <body>
+    <h2>Nhận dạng giọng nói liên tục</h2>
+    <div id="result">Đang nghe...</div>
+
+    <script>
+      let currentResult = ""; // Biến lưu kết quả hiện tại từ nhận dạng giọng nói
+      let recognition;
+      let isRecognizing = false; // Biến theo dõi trạng thái
+
+      // Khởi tạo và cấu hình nhận dạng giọng nói
+      function initRecognition() {
+        recognition = new (window.SpeechRecognition ||
+          window.webkitSpeechRecognition)();
+        recognition.lang = "vi-VN"; // Ngôn ngữ tiếng Việt
+        recognition.interimResults = true; // Hiển thị kết quả tạm thời
+        recognition.continuous = true; // Nghe liên tục
+
+        // Xử lý khi có kết quả nhận dạng
+        recognition.onresult = (event) => {
+          currentResult = Array.from(event.results)
+            .map((result) => result[0].transcript)
+            .join("");
+          document.getElementById("result").textContent = currentResult;
+        };
+
+        // Xử lý khi có lỗi để tiếp tục nghe
+        recognition.onerror = (event) => {
+          console.error("Lỗi nhận dạng giọng nói:", event.error);
+          document.getElementById("result").textContent =
+            "Lỗi nhận dạng. Đang nghe lại...";
+          restartListening();
+        };
+
+        // Tự động tiếp tục nghe khi kết thúc
+        recognition.onend = () => {
+          isRecognizing = false; // Đặt lại trạng thái
+          restartListening();
+        };
+      }
+
+      // Bắt đầu lắng nghe
+      function startListening() {
+        if (!recognition) initRecognition();
+        if (!isRecognizing) {
+          recognition.start();
+          isRecognizing = true;
+        }
+      }
+
+      // Dừng và bắt đầu lại việc nghe
+      function restartListening() {
+        if (isRecognizing) {
+          recognition.stop();
+        } else {
+          startListening();
+        }
+      }
+
+      // Xử lý khi nhấn phím F1 để sao chép kết quả vào clipboard
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "F1") {
+          event.preventDefault(); // Ngăn chặn hành vi mặc định của phím F1
+          if (currentResult) {
+            navigator.clipboard
+              .writeText(currentResult)
+              .then(() => {
+                currentResult = ""; // Xóa nội dung kết quả sau khi sao chép
+                document.getElementById("result").textContent = "Đang nghe..."; // Đặt lại trạng thái hiển thị
+                restartListening(); // Khởi động lại để xóa kết quả cũ
+              })
+              .catch((err) => {
+                alert("Không thể sao chép vào clipboard: " + err);
+              });
+          }
+        }
+      });
+
+      // Bắt đầu lắng nghe ngay khi trang tải
+      startListening();
+    </script>
+  </body>
+</html>
