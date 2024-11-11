@@ -3,16 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nhận dạng giọng nói</title>
+    <title>Nhận dạng giọng nói và Từ điển</title>
   </head>
   <body>
     <h2>Nhận dạng giọng nói liên tục</h2>
     <div id="result">Đang nghe...</div>
 
+    <h3>Chọn tệp từ điển (txt)</h3>
+    <input type="file" id="fileInput" />
+
     <script>
       let currentResult = ""; // Biến lưu kết quả hiện tại từ nhận dạng giọng nói
       let recognition;
       let isRecognizing = false; // Biến theo dõi trạng thái
+      let dictionary = {}; // Đối tượng từ điển (key-value)
+      let translatedResult = "";
 
       // Khởi tạo và cấu hình nhận dạng giọng nói
       function initRecognition() {
@@ -27,7 +32,15 @@
           currentResult = Array.from(event.results)
             .map((result) => result[0].transcript)
             .join("");
-          document.getElementById("result").textContent = currentResult;
+
+          // Thay thế các từ trong kết quả nhận dạng bằng từ điển
+          translatedResult = currentResult;
+          Object.keys(dictionary).forEach((key) => {
+            const regex = new RegExp(`\\b${key}\\b`, "g");
+            translatedResult = translatedResult.replace(regex, dictionary[key]);
+          });
+
+          document.getElementById("result").textContent = translatedResult;
         };
 
         // Xử lý khi có lỗi để tiếp tục nghe
@@ -65,12 +78,13 @@
 
       // Xử lý khi nhấn phím F1 để sao chép kết quả vào clipboard
       document.addEventListener("keydown", (event) => {
-        if (event.key === "F1") {
+        if (event.key === "F10") {
           event.preventDefault(); // Ngăn chặn hành vi mặc định của phím F1
           if (currentResult) {
             navigator.clipboard
-              .writeText(currentResult)
+              .writeText(translatedResult)
               .then(() => {
+                translatedResult = "";
                 currentResult = ""; // Xóa nội dung kết quả sau khi sao chép
                 document.getElementById("result").textContent = "Đang nghe..."; // Đặt lại trạng thái hiển thị
                 restartListening(); // Khởi động lại để xóa kết quả cũ
@@ -80,10 +94,44 @@
               });
           }
         }
+        if (event.key === "F11") {
+          event.preventDefault(); // Ngăn chặn hành vi mặc định của phím F1
+          if (currentResult) {
+            translatedResult = "";
+            currentResult = ""; // Xóa nội dung kết quả sau khi sao chép
+            document.getElementById("result").textContent = "Đang nghe..."; // Đặt lại trạng thái hiển thị
+            restartListening(); // Khởi động lại để xóa kết quả cũ
+          }
+        }
       });
 
       // Bắt đầu lắng nghe ngay khi trang tải
       startListening();
+
+      // Đọc tệp và chuyển thành từ điển
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", function (event) {
+          const file = event.target.files[0];
+          const reader = new FileReader();
+
+          reader.onload = function (e) {
+            const fileContent = e.target.result;
+            const lines = fileContent.split("\n"); // Tách các dòng trong tệp
+
+            // Đọc từng dòng và chuyển thành cặp key-value
+            lines.forEach((line) => {
+              const [key, value] = line.split(":").map((item) => item.trim()); // Tách key và value
+              if (key && value) {
+                dictionary[key] = value; // Lưu vào từ điển
+              }
+            });
+
+            console.log(dictionary); // Hiển thị từ điển trong console
+          };
+
+          reader.readAsText(file); // Đọc tệp dưới dạng văn bản
+        });
     </script>
   </body>
 </html>
