@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kick Offline Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div
+      id="mainScreen"
+      class="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md space-y-4"
+    >
+      <h1 class="text-2xl font-bold text-center mb-4">Kick Member Tool</h1>
+
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="tokenInput" class="block mb-1">Token</label>
+          <input
+            type="text"
+            id="tokenInput"
+            placeholder="Nhập Token"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="min" class="block mb-1">Thành viên tối thiểu</label>
+          <input
+            type="text"
+            id="min"
+            placeholder="tử 5-19"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="time" class="block mb-1"
+            >Thời gian Offline (minutes)</label
+          >
+          <input
+            type="text"
+            id="time"
+            placeholder="ex: 1 minutes"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="rank" class="block mb-1">Rank bị kick</label>
+          <input
+            type="text"
+            id="rank"
+            placeholder="từ 1-3"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="minpowaccept" class="block mb-1"
+            >Power tối thiểu chấp nhận</label
+          >
+          <input
+            type="text"
+            id="minpowaccept"
+            placeholder="ex: 10000"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="minlevelaccept" class="block mb-1"
+            >Level tối thiểu chấp nhận</label
+          >
+          <input
+            type="text"
+            id="minlevelaccept"
+            placeholder="ex: 50"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="minpowernotkick" class="block mb-1"
+            >Min Power không bị kick</label
+          >
+          <input
+            type="text"
+            id="minpowernotkick"
+            placeholder="ex: 15000"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label for="minlevelnotkick" class="block mb-1"
+            >Min Level không bị kick</label
+          >
+          <input
+            type="text"
+            id="minlevelnotkick"
+            placeholder="ex: 50"
+            class="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+      </div>
+
+      <div class="flex justify-between">
+        <button
+          onclick="start()"
+          class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+        >
+          Run
+        </button>
+        <button
+          onclick="stop()"
+          class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+        >
+          Stop
+        </button>
+        <button
+          onclick="togglePlayerList()"
+          id="toggleButton"
+          class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+        >
+          Hiển thị tất cả người chơi
+        </button>
+      </div>
+
+      <textarea
+        id="log"
+        readonly
+        class="w-full h-40 p-2 mt-4 border border-gray-300 rounded-lg bg-gray-50"
+      ></textarea>
+    </div>
+
+    <div id="playerListScreen" class="hidden w-full max-w-3xl p-6">
+      <button
+        onclick="togglePlayerList()"
+        class="mb-4 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600"
+      >
+        Quay lại
+      </button>
+      <table class="w-full text-left table-auto">
+        <thead>
+          <tr>
+            <th class="px-4 py-2">Tên</th>
+            <th class="px-4 py-2">Level</th>
+            <th class="px-4 py-2">Power</th>
+            <th class="px-4 py-2">Last Online(Phút)</th>
+            <th class="px-4 py-2">Đóng góp</th>
+            <th class="px-4 py-2">Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="playerList">
+          <!-- Dữ liệu người chơi sẽ được thêm ở đây -->
+        </tbody>
+      </table>
+    </div>
+    <script>
+      let whilelist = [
+        "67d96d693070e3c25940a113",
+        "67d86fd6b6209a4426d84c46",
+        "67d83a2f0c1565cd18de4ee2",
+        "67d836e6a10e2d74c5499379",
+      ];
+      let minpowaccept = 0;
+      let minlevelaccept = 0;
+      let minpowernotkick = 1;
+      let minlevelnotkick = 100;
+      let currentrequest = [];
+      let currentMember = [];
+      let currentMemberUpdate = [];
+      let token,
+        min,
+        time,
+        rank,
+        isrun = false,
+        currentscreen = 1;
+      document.getElementById("min").value = 18;
+      document.getElementById("time").value = 1;
+      document.getElementById("rank").value = 3;
+
+      function stop() {
+        if (isrun) isrun = false;
+      }
+      function delay(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+      let logdata = document.getElementById("log");
+      logdata.value = "log data: ";
+      async function updateTime() {
+        while (true) {
+          let t = getFormattedTime();
+          showlog(t);
+          await delay(60000);
+        }
+      }
+      updateTime();
+      function showlog(data) {
+        logdata.value += "\n" + data;
+      }
+      function getFormattedTime() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const year = now.getFullYear();
+        return `${hours}:${minutes} - ${day}/${month}/${year}`;
+      }
+      function parseTime(timeString) {
+        const [timePart, datePart] = timeString.split(" - ");
+        const [hours, minutes] = timePart.split(":").map(Number);
+        const [day, month, year] = datePart.split("/").map(Number);
+
+        return new Date(year, month - 1, day, hours, minutes);
+      }
+
+      function differenceInMinutes(time1, time2) {
+        const date1 = parseTime(time1);
+        const date2 = parseTime(time2);
+
+        const diffMs = date2 - date1; // Sự khác biệt tính bằng mili-giây
+        return Math.floor(diffMs / 60000); // Đổi từ mili-giây sang phút
+      }
+      function clearLog() {
+        if (logdata.value.length > 2000) {
+          logdata.value = "log data: ";
+        }
+      }
+
+      function togglePlayerList() {
+        const mainScreen = document.getElementById("mainScreen");
+        const playerListScreen = document.getElementById("playerListScreen");
+        const toggleButton = document.getElementById("toggleButton");
+
+        if (mainScreen.classList.contains("hidden")) {
+          mainScreen.classList.remove("hidden");
+          playerListScreen.classList.add("hidden");
+          toggleButton.textContent = "Hiển thị tất cả người chơi";
+          currentscreen = 1;
+        } else {
+          mainScreen.classList.add("hidden");
+          playerListScreen.classList.remove("hidden");
+          toggleButton.textContent = "Quay lại";
+          currentscreen = 2;
+          loadPlayerList();
+        }
+      }
+
+      function loadPlayerList() {
+        const playerListTable = document.getElementById("playerList");
+        playerListTable.innerHTML = currentMember
+          .map((player) => {
+            let currentTime = getFormattedTime();
+            let gapTime = differenceInMinutes(player.online, currentTime);
+            if (gapTime == 0) gapTime = "Online";
+
+            return `
+          <tr>
+            <td class="border px-4 py-2">${player.name}</td>
+            <td class="border px-4 py-2">${player.level}</td>
+            <td class="border px-4 py-2">${player.power}</td>
+            <td class="border px-4 py-2">${gapTime}</td>
+            <td class="border px-4 py-2">${player.contribute}</td>
+            <td class="border px-4 py-2"><button onclick="kickPlayer('${player.name}','${player.id}')" class="bg-red-500 text-white px-2 py-1 rounded">Kick</button></td>
+          </tr>
+        `;
+          })
+          .join("");
+      }
+
+      async function kickPlayer(name, id) {
+        let res = await kickMember(token, id);
+        if (res) {
+          showlog(`Đã kích người chơi: ${name}`);
+        } else showlog(`kích không thành công: ${name}`);
+        await checkMember(token);
+        alert(`đã kích người chơi ${name} khỏi liên minh!`);
+        loadPlayerList();
+      }
+    </script>
+    <script src="lokc.js"></script>
+  </body>
+</html>
