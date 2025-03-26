@@ -1,16 +1,3 @@
-// let token =
-
-// let min = 17;//tối thiểu còn lại
-// let time = 1; //100 giây offline là kích
-// let rank = 3;
-// let minpowaccept = 0;
-// let minlevelaccept = 0;
-// let minpowernotkick = 6000;
-// let minlevelnotkick = 40;
-// let currentMember = [];
-// let currentMemberUpdate = [];
-// let currentrequest = [];
-
 function findPlayerById(players, id) {
   return players.find((player) => player.id === id) || null;
 }
@@ -300,7 +287,79 @@ async function rejectmember(member) {
     showlog("lỗi từ chối");
   }
 }
-
+async function startQuest(id = 1007) {
+  //nhận nv
+  try {
+    let dt = await fetch(
+      "https://api-lokc-live.lokchronicle.com/api/guild/quest/accept",
+      {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "sec-ch-ua":
+            '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "x-access-token": token,
+          Referer: "https://game.lokchronicle.com/",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+        body: `json=%7B%22code%22%3A${id}%7D`,
+        method: "POST",
+      }
+    );
+    let res = await dt.json();
+    console.log(res);
+    return res.result;
+  } catch (error) {
+    return false;
+  }
+}
+async function checkCurrentQuest() {
+  //nhận nv
+  try {
+    let dt = await fetch(
+      "https://api-lokc-live.lokchronicle.com/api/guild/quest/get/current",
+      {
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "sec-ch-ua":
+            '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "x-access-token": token,
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+        body: "json=%7B%7D",
+        method: "POST",
+      }
+    );
+    let res = await dt.json();
+    if (res.quest.targets) {
+      let q = [];
+      for (let i = 0; i < res.quest.targets.length; i++) {
+        q.push(
+          res.quest.targets[i].value + "/" + res.quest.targets[i].targetValue
+        );
+      }
+      return q;
+    } else return null;
+  } catch (error) {
+    return null;
+  }
+}
+async function checkquest() {
+  while (isrun) {
+    let dt = await checkCurrentQuest();
+    if (dt == null) {
+      let st = await startQuest();
+      if (!st) {
+        showlog("lỗi nhận nv");
+        break;
+      } else showlog("đã nhận nv");
+    } else showlog(`nhiệm vụ hiện tại: ${dt}`);
+    await delay(60000);
+  }
+}
 async function start() {
   token = document.getElementById("tokenInput").value;
   min = parseFloat(document.getElementById("min").value);
@@ -338,6 +397,7 @@ async function start() {
 
   if (isrun == true) return;
   else isrun = true;
+  checkquest();
   while (isrun) {
     let k = await checkMember(token);
     if (k == false) break;
