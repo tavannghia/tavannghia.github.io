@@ -29,7 +29,7 @@
           return;
         }
 
-        const url = `ws://${ip}:8080`;
+        const url = `wss://${ip}:8080`;
         ws = new WebSocket(url);
 
         ws.onopen = () => {
