@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket Screen Stream</title>
+  </head>
+  <body>
+    <h1>Live Screen Streaming</h1>
+
+    <label for="ipAddress">Nhập IP Server:</label>
+    <input type="text" id="ipAddress" placeholder="192.168.1.100" />
+    <button onclick="connectWS()">Kết Nối</button>
+
+    <p id="status">Chưa kết nối</p>
+
+    <img
+      id="screen"
+      style="width: 100%; max-width: 800px; border: 2px solid black"
+    />
+
+    <script>
+      let ws;
+
+      function connectWS() {
+        const ip = document.getElementById("ipAddress").value;
+        if (!ip) {
+          alert("Vui lòng nhập IP Server!");
+          return;
+        }
+
+        const url = `ws://${ip}:8080`;
+        ws = new WebSocket(url);
+
+        ws.onopen = () => {
+          document.getElementById("status").innerText = "Đã kết nối tới " + url;
+        };
+
+        ws.onmessage = (event) => {
+          const img = document.getElementById("screen");
+          const blob = new Blob([event.data], { type: "image/jpeg" });
+          img.src = URL.createObjectURL(blob);
+        };
+
+        ws.onerror = (error) => {
+          console.error("WebSocket Error:", error);
+          document.getElementById("status").innerText = "Lỗi kết nối!";
+        };
+
+        ws.onclose = () => {
+          document.getElementById("status").innerText = "Mất kết nối!";
+        };
+      }
+    </script>
+  </body>
+</html>
