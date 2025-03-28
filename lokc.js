@@ -1,3 +1,16 @@
+// let token =
+
+// let min = 17;//tối thiểu còn lại
+// let time = 1; //100 giây offline là kích
+// let rank = 3;
+// let minpowaccept = 0;
+// let minlevelaccept = 0;
+// let minpowernotkick = 6000;
+// let minlevelnotkick = 40;
+// let currentMember = [];
+// let currentMemberUpdate = [];
+// let currentrequest = [];
+
 function findPlayerById(players, id) {
   return players.find((player) => player.id === id) || null;
 }
@@ -354,9 +367,13 @@ async function checkquest() {
       let st = await startQuest();
       if (!st) {
         showlog("lỗi nhận nv");
+        document.getElementById("quest").textContent = "none";
         break;
       } else showlog("đã nhận nv");
-    } else showlog(`nhiệm vụ hiện tại: ${dt}`);
+    } else {
+      document.getElementById("quest").textContent = dt;
+      showlog(`nhiệm vụ hiện tại: ${dt}`);
+    }
     await delay(60000);
   }
 }
