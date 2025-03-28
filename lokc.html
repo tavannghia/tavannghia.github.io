@@ -116,8 +116,12 @@
           id="toggleButton"
           class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
         >
-          Hiển thị tất cả người chơi
+          All player
         </button>
+        <div>
+          <p>Nhiệm vụ</p>
+          <p id="quest">none</p>
+        </div>
       </div>
 
       <textarea
@@ -127,35 +131,96 @@
       ></textarea>
     </div>
 
-    <div id="playerListScreen" class="hidden w-full max-w-3xl p-6">
+    <div
+      id="playerListScreen"
+      class="hidden w-full max-w-3xl p-6 bg-white rounded-lg shadow-md"
+    >
+      <!-- Nút quay lại -->
       <button
         onclick="togglePlayerList()"
-        class="mb-4 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600"
+        class="mb-4 bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition duration-200"
       >
         Quay lại
       </button>
-      <table class="w-full text-left table-auto">
-        <thead>
-          <tr>
-            <th class="px-4 py-2">Tên</th>
-            <th class="px-4 py-2">Level</th>
-            <th class="px-4 py-2">Power</th>
-            <th class="px-4 py-2">Last Online(Phút)</th>
-            <th class="px-4 py-2">Đóng góp</th>
-            <th class="px-4 py-2">Hành động</th>
-          </tr>
-        </thead>
-        <tbody id="playerList">
-          <!-- Dữ liệu người chơi sẽ được thêm ở đây -->
-        </tbody>
-      </table>
+
+      <!-- Bảng danh sách người chơi -->
+      <div class="overflow-x-auto">
+        <table
+          class="w-full text-left table-auto border-collapse border border-gray-300"
+        >
+          <thead>
+            <tr class="bg-gray-200 text-gray-700">
+              <th
+                class="border border-gray-300 px-4 py-2 text-center"
+                style="width: 15%"
+              >
+                Tên
+              </th>
+              <th
+                class="border border-gray-300 px-4 py-2 text-center"
+                style="width: 15%"
+              >
+                Level
+              </th>
+              <th
+                class="border border-gray-300 px-4 py-2 text-center"
+                style="width: 15%"
+              >
+                Power
+              </th>
+              <th
+                class="border border-gray-300 px-4 py-2 text-center"
+                style="width: 15%"
+              >
+                Online (mins)
+              </th>
+              <th
+                class="border border-gray-300 px-4 py-2 text-center"
+                style="width: 25%"
+              >
+                Hành động
+              </th>
+            </tr>
+          </thead>
+          <tbody id="playerList">
+            <!-- Dữ liệu người chơi sẽ được thêm ở đây -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Cập nhật Whitelist -->
+      <div class="mt-6 p-4 bg-gray-100 rounded-lg shadow-inner">
+        <h3 class="text-lg font-semibold mb-2 text-gray-700">
+          Cập nhật Whitelist
+        </h3>
+
+        <!-- Tải lên danh sách -->
+        <label
+          for="uploadWhiteList"
+          class="block mb-2 text-sm font-medium text-gray-600"
+          >Tải lên file whitelist:</label
+        >
+        <input
+          type="file"
+          id="uploadWhiteList"
+          accept=".txt"
+          onchange="uploadWhiteListFile(event)"
+          class="w-full border border-gray-300 p-2 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-400"
+        />
+
+        <!-- Nút tải xuống -->
+        <button
+          onclick="downloadwList()"
+          class="mt-4 w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition duration-200"
+        >
+          Tải xuống danh sách whitelist
+        </button>
+      </div>
     </div>
+
     <script>
       let whilelist = [
-        "67d96d693070e3c25940a113",
-        "67d86fd6b6209a4426d84c46",
-        "67d83a2f0c1565cd18de4ee2",
-        "67d836e6a10e2d74c5499379",
+       
       ];
       let minpowaccept = 0;
       let minlevelaccept = 0;
@@ -231,7 +296,7 @@
         if (mainScreen.classList.contains("hidden")) {
           mainScreen.classList.remove("hidden");
           playerListScreen.classList.add("hidden");
-          toggleButton.textContent = "Hiển thị tất cả người chơi";
+          toggleButton.textContent = "All player";
           currentscreen = 1;
         } else {
           mainScreen.classList.add("hidden");
@@ -248,22 +313,57 @@
           .map((player) => {
             let currentTime = getFormattedTime();
             let gapTime = differenceInMinutes(player.online, currentTime);
+            let wlist = whilelist.indexOf(player.id) != -1;
             if (gapTime == 0) gapTime = "Online";
-
-            return `
-          <tr>
-            <td class="border px-4 py-2">${player.name}</td>
-            <td class="border px-4 py-2">${player.level}</td>
-            <td class="border px-4 py-2">${player.power}</td>
-            <td class="border px-4 py-2">${gapTime}</td>
-            <td class="border px-4 py-2">${player.contribute}</td>
-            <td class="border px-4 py-2"><button onclick="kickPlayer('${player.name}','${player.id}')" class="bg-red-500 text-white px-2 py-1 rounded">Kick</button></td>
-          </tr>
-        `;
+            return `<tr id="row-${player.id}" style="height: 5vh;">
+          <td class="border text-center" style="width: 15%;">${player.name}</td>
+          <td class="border text-center" style="width: 15%;">${
+            player.level
+          }</td>
+          <td class="border text-center" style="width: 15%;">${
+            player.power
+          }</td>
+          <td class="border text-center" style="width: 15%;">${gapTime}</td>
+          <td class="border text-center" style="width: 25%; padding: 5px;">
+            <div class="flex justify-between items-center w-full">
+              <button onclick="kickPlayer('${player.name}', '${player.id}')"
+                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded shadow-md">
+                Kick
+              </button>
+              <button onclick="toggleWhiteList('${player.id}', '${
+              player.name
+            }')"
+                class="${
+                  wlist
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-gray-500 hover:bg-gray-600"
+                }
+                text-white px-3 py-1 rounded shadow-md">
+                ${wlist ? "- WhiteList" : "+ WhiteList"}
+              </button>
+            </div>
+          </td>
+        </tr>`;
           })
           .join("");
       }
+      function toggleWhiteList(playerId, playerName) {
+        console.log("player name: ", playerName);
+        console.log("playerID: ", playerId);
+        let index = whilelist.indexOf(playerId);
 
+        if (index !== -1) {
+          whilelist.splice(index, 1);
+          showlog(`Đã xóa ${playerName} khỏi whilelist `);
+          alert(`Đã xóa ${playerName} khỏi whilelist `);
+        } else {
+          whilelist.push(playerId);
+          showlog(`Đã thêm ${playerName} vào whilelist `);
+          alert(`Đã thêm ${playerName} vào whilelist `);
+        }
+        loadPlayerList();
+        console.log(whilelist);
+      }
       async function kickPlayer(name, id) {
         let res = await kickMember(token, id);
         if (res) {
@@ -272,6 +372,38 @@
         await checkMember(token);
         alert(`đã kích người chơi ${name} khỏi liên minh!`);
         loadPlayerList();
+      }
+      //-------------------------------------------
+      // Tải file whilelist.txt lên
+      function uploadWhiteListFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const newIds = e.target.result
+            .split("\n")
+            .map((id) => id.trim())
+            .filter((id) => id);
+          newIds.forEach((id) => {
+            if (!whilelist.includes(id)) {
+              whilelist.push(id);
+            }
+          });
+          showlog("Đã cập nhật danh sách WhileList từ file.");
+          loadPlayerList(); // Cập nhật danh sách trên UI
+        };
+        reader.readAsText(file);
+      }
+      function downloadwList() {
+        let content = whilelist.join("\n"); // Ghép danh sách lại thành chuỗi
+        let blob = new Blob([content], { type: "text/plain" });
+        let a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "whilelist.txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }
     </script>
     <script src="lokc.js"></script>
