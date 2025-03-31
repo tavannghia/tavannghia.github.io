@@ -10,7 +10,7 @@
 // let currentMember = [];
 // let currentMemberUpdate = [];
 // let currentrequest = [];
-
+let questid = 1007
 function findPlayerById(players, id) {
   return players.find((player) => player.id === id) || null;
 }
@@ -349,6 +349,7 @@ async function checkCurrentQuest() {
     let res = await dt.json();
     if (res.quest.targets) {
       let q = [];
+      questid = res.quest.code
       for (let i = 0; i < res.quest.targets.length; i++) {
         q.push(
           res.quest.targets[i].value + "/" + res.quest.targets[i].targetValue
@@ -364,7 +365,7 @@ async function checkquest() {
   while (isrun) {
     let dt = await checkCurrentQuest();
     if (dt == null) {
-      let st = await startQuest();
+      let st = await startQuest(questid);
       if (!st) {
         showlog("lỗi nhận nv");
         document.getElementById("quest").textContent = "none";
