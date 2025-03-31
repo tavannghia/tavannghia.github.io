@@ -373,7 +373,7 @@ async function checkquest() {
       } else showlog("đã nhận nv");
     } else {
       document.getElementById("quest").textContent = dt;
-      showlog(`nhiệm vụ hiện tại: ${dt}`);
+      showlog(`nhiệm vụ id = ${questid} hiện tại: ${dt}`);
     }
     await delay(60000);
   }
