@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>IPv6 Change Watcher</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial;
+        padding: 18px;
+        max-width: 900px;
+        margin: auto;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      input[type="number"] {
+        width: 100px;
+        padding: 6px;
+      }
+      button {
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+        font-size: 14px;
+      }
+      th {
+        background: #f4f4f4;
+      }
+      .status {
+        margin-top: 6px;
+        font-size: 14px;
+      }
+      .muted {
+        color: #666;
+        font-size: 13px;
+      }
+      .ip-current {
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>IPv6 Change Watcher</h1>
+    <p class="muted">
+      Kiểm tra public IPv4/IPv6 định kỳ. Khi IP đổi, ghi lại IP mới và thời gian
+      bắt đầu.
+    </p>
+
+    <div class="controls">
+      <label
+        >Khoảng kiểm tra (giây):
+        <input id="intervalSec" type="number" min="5" value="60" />
+      </label>
+      <button id="btnStart">Start</button>
+      <button id="btnStop" disabled>Stop</button>
+      <button id="btnNow">Check now</button>
+      <button id="btnExport">Export CSV</button>
+      <button id="btnClear">Clear logs</button>
+    </div>
+
+    <div class="status">
+      IPv6 công khai: <span id="currentIp" class="ip-current">—</span><br />
+      IPv4 công khai: <span id="currentIpv4" class="ip-current">—</span><br />
+      Lần kiểm tra gần nhất: <span id="lastChecked">—</span>
+    </div>
+
+    <table id="logTable" aria-live="polite">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>IPv6 (public)</th>
+          <th>IPv4 (public)</th>
+          <th>Start time</th>
+        </tr>
+      </thead>
+
+      <tbody></tbody>
+    </table>
+
+    <script>
+      (() => {
+        const STORAGE_KEY = "ipChangeLog_v1";
+        const POLL_DEFAULT_SEC = 60;
+        const ipV6Display = document.getElementById("currentIp");
+        const ipV4Display = document.getElementById("currentIpv4");
+        const lastCheckedDisplay = document.getElementById("lastChecked");
+        const tableBody = document.querySelector("#logTable tbody");
+        const intervalInput = document.getElementById("intervalSec");
+        let lastSeenIpV4 = null;
+
+        let timer = null;
+        let lastSeenIpV6 = null;
+
+        // ===== Helpers =====
+        const pad = (n) => String(n).padStart(2, "0");
+        function formatDateTime(dt) {
+          return `${pad(dt.getDate())}/${pad(
+            dt.getMonth() + 1
+          )}/${dt.getFullYear()} ${pad(dt.getHours())}:${pad(
+            dt.getMinutes()
+          )}:${pad(dt.getSeconds())}`;
+        }
+        function isPrivateIPv4(ip) {
+          return (
+            /^10\./.test(ip) ||
+            /^192\.168\./.test(ip) ||
+            /^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)
+          );
+        }
+        function isGlobalIPv6(ip) {
+          if (typeof ip !== "string" || ip.indexOf(":") === -1) return false;
+          const base = ip.split("%")[0].toLowerCase();
+          if (base.startsWith("fe80:")) return false; // link-local
+          if (base.startsWith("fc") || base.startsWith("fd")) return false; // ULA
+          if (base === "::1") return false; // loopback
+          if (base.startsWith("ff")) return false; // multicast
+          if (base.startsWith("2001:db8")) return false; // documentation
+          if (base.includes("::ffff:")) return false; // IPv4-mapped
+          return true;
+        }
+
+        // ===== Storage =====
+        const loadLogs = () => {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+          } catch {
+            return [];
+          }
+        };
+        const saveLogs = (logs) =>
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+        function addLog(ipv6, ipv4, timeStr) {
+          const logs = loadLogs();
+          if (
+            logs.length > 0 &&
+            logs[0].ipv6 === ipv6 &&
+            logs[0].ipv4 === ipv4
+          ) {
+            return;
+          }
+          logs.unshift({ ipv6, ipv4, start: timeStr });
+          saveLogs(logs);
+
+          renderLogs();
+        }
+        function clearLogs() {
+          localStorage.removeItem(STORAGE_KEY);
+          renderLogs();
+        }
+
+        // ===== UI render =====
+        function renderLogs() {
+          const logs = loadLogs();
+          tableBody.innerHTML = "";
+          logs.forEach((entry, idx) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${logs.length - idx}</td>
+                    <td>${entry.ipv6 || "—"}</td>
+                    <td>${entry.ipv4 || "—"}</td>
+                    <td>${entry.start}</td>`;
+            tableBody.appendChild(tr);
+          });
+        }
+        function exportCSV() {
+          const logs = loadLogs();
+          if (!logs.length) return alert("Không có logs để xuất.");
+          const rows = [["ip", "start"]];
+          logs
+            .slice()
+            .reverse()
+            .forEach((r) => rows.push([r.ip, r.start]));
+          const csv = rows
+            .map((r) =>
+              r.map((s) => `"${String(s).replace(/"/g, '""')}"`).join(",")
+            )
+            .join("\n");
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `ip_logs_${new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:T]/g, "-")}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }
+
+        // ===== Fetch IP =====
+        async function fetchPublicIPv4() {
+          try {
+            const r = await fetch("https://api.ipify.org?format=json", {
+              cache: "no-store",
+            });
+            const j = await r.json();
+            return isPrivateIPv4(j.ip) ? null : j.ip;
+          } catch {
+            return null;
+          }
+        }
+        async function fetchPublicIPv6() {
+          try {
+            const r = await fetch("https://api64.ipify.org?format=json", {
+              cache: "no-store",
+            });
+            const j = await r.json();
+            return isGlobalIPv6(j.ip) ? j.ip : null;
+          } catch {
+            return null;
+          }
+        }
+
+        // ===== Main check =====
+        async function checkOnce({ uiUpdate = true } = {}) {
+          if (uiUpdate) {
+            lastCheckedDisplay.textContent = formatDateTime(new Date());
+            ipV6Display.textContent = "Checking…";
+            ipV4Display.textContent = "Checking…";
+          }
+          const [ipV6, ipV4] = await Promise.all([
+            fetchPublicIPv6(),
+            fetchPublicIPv4(),
+          ]);
+          if (uiUpdate) {
+            ipV6Display.textContent = ipV6 || "Không có IPv6 công khai";
+            ipV4Display.textContent = ipV4 || "Không có IPv4 công khai";
+          }
+          const nowStr = formatDateTime(new Date());
+          if (ipV6 || ipV4) {
+            if (
+              lastSeenIpV6 === null ||
+              ipV6 !== lastSeenIpV6 ||
+              ipV4 !== lastSeenIpV4
+            ) {
+              lastSeenIpV6 = ipV6;
+              lastSeenIpV4 = ipV4;
+              addLog(ipV6, ipV4, nowStr);
+            }
+          }
+        }
+        // ===== Poll control =====
+        function startPolling() {
+          const sec = Math.max(
+            5,
+            Math.floor(Number(intervalInput.value) || POLL_DEFAULT_SEC)
+          );
+          stopPolling();
+          timer = setInterval(() => checkOnce({ uiUpdate: true }), sec * 1000);
+          document.getElementById("btnStart").disabled = true;
+          document.getElementById("btnStop").disabled = false;
+          checkOnce({ uiUpdate: true });
+        }
+        function stopPolling() {
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+          }
+          document.getElementById("btnStart").disabled = false;
+          document.getElementById("btnStop").disabled = true;
+        }
+
+        // ===== Init =====
+        function init() {
+          renderLogs();
+          const logs = loadLogs();
+          if (logs.length) lastSeenIpV6 = logs[0].ip;
+          document
+            .getElementById("btnStart")
+            .addEventListener("click", startPolling);
+          document
+            .getElementById("btnStop")
+            .addEventListener("click", stopPolling);
+          document
+            .getElementById("btnNow")
+            .addEventListener("click", () => checkOnce({ uiUpdate: true }));
+          document
+            .getElementById("btnExport")
+            .addEventListener("click", exportCSV);
+          document.getElementById("btnClear").addEventListener("click", () => {
+            if (confirm("Xóa toàn bộ logs?")) {
+              clearLogs();
+              lastSeenIpV6 = null;
+              ipV6Display.textContent = "—";
+              ipV4Display.textContent = "—";
+              lastCheckedDisplay.textContent = "—";
+            }
+          });
+          intervalInput.addEventListener("change", () => {
+            if (timer) startPolling();
+          });
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
