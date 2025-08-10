@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test WebSocket Server</title>
+  </head>
+  <body>
+    <h2>Kết nối WebSocket</h2>
+    <p id="status">Đang kết nối...</p>
+
+    <input type="text" id="messageInput" placeholder="Nhập tin nhắn..." />
+    <button id="sendBtn">Gửi</button>
+
+    <h3>Log:</h3>
+    <pre id="log"></pre>
+
+    <script>
+      let start = new Date();
+      const logEl = document.getElementById("log");
+      const statusEl = document.getElementById("status");
+      const input = document.getElementById("messageInput");
+      const sendBtn = document.getElementById("sendBtn");
+
+      function log(msg) {
+        logEl.textContent += msg + "\n";
+      }
+
+      // Kết nối tới server WebSocket
+      const ws = new WebSocket("https://api.mintynfts.com");
+
+      ws.onopen = () => {
+        statusEl.textContent = "✅ Đã kết nối tới server";
+        log("Kết nối thành công.");
+        const end = new Date();
+        const latency = end - start; // tính ra mili-giây
+        console.log(`Latency: ${latency} ms`);
+      };
+
+      ws.onmessage = (event) => {
+        log("📩 Server: " + event.data);
+        const end = new Date();
+        const latency = end - start; // tính ra mili-giây
+        console.log(`Latency: ${latency} ms`);
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = "❌ Mất kết nối";
+        log("Kết nối đóng.");
+      };
+
+      ws.onerror = (err) => {
+        log("⚠️ Lỗi WebSocket: " + err.message);
+      };
+
+      sendBtn.onclick = () => {
+        const msg = input.value.trim();
+        if (msg) {
+          ws.send(msg);
+          start = new Date();
+          input.value = "";
+        }
+      };
+    </script>
+  </body>
+</html>
